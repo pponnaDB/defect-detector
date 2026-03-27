@@ -1,0 +1,314 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Defect Detector</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.prod.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root { --bg:#0f1117; --bg2:#1a1d27; --card:#222536; --t1:#e8eaed; --t2:#9aa0a6; --accent:#4f8ff7; --pass:#34a853; --pass-bg:rgba(52,168,83,.15); --fail:#ea4335; --fail-bg:rgba(234,67,53,.15); --warn:#fbbc04; --warn-bg:rgba(251,188,4,.15); --border:#2d3142; --r:12px; }
+        *{margin:0;padding:0;box-sizing:border-box}
+        body{font-family:'Inter',-apple-system,sans-serif;background:var(--bg);color:var(--t1);min-height:100vh}
+        .app-container{max-width:1440px;margin:0 auto;padding:24px}
+        .header{display:flex;align-items:center;gap:16px;margin-bottom:32px;padding-bottom:24px;border-bottom:1px solid var(--border)}
+        .header-icon{width:48px;height:48px;background:linear-gradient(135deg,var(--accent),#7c3aed);border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:24px}
+        .header h1{font-size:24px;font-weight:700;letter-spacing:-.5px}
+        .header p{color:var(--t2);font-size:14px;margin-top:2px}
+        .main-grid{display:grid;grid-template-columns:400px 1fr;gap:24px}
+        @media(max-width:1024px){.main-grid{grid-template-columns:1fr}}
+        .card{background:var(--card);border-radius:var(--r);border:1px solid var(--border);overflow:hidden}
+        .card-header{padding:16px 20px;border-bottom:1px solid var(--border);font-weight:600;font-size:13px;text-transform:uppercase;letter-spacing:.5px;color:var(--t2);display:flex;align-items:center;gap:8px}
+        .stage-badge{display:inline-block;padding:2px 8px;border-radius:6px;font-size:11px;font-weight:700;color:#fff}
+        .stage-badge.s1{background:#6366f1} .stage-badge.s2{background:#8b5cf6}
+        .card-body{padding:20px}
+        .upload-zone{border:2px dashed var(--border);border-radius:var(--r);padding:40px 24px;text-align:center;cursor:pointer;transition:all .3s}
+        .upload-zone:hover,.upload-zone.dragover{border-color:var(--accent);background:rgba(79,143,247,.05)}
+        .upload-zone .icon{font-size:48px;margin-bottom:12px}
+        .upload-zone p{color:var(--t2);font-size:14px}
+        .upload-zone .browse{color:var(--accent);cursor:pointer;text-decoration:underline}
+        .preview-container{margin-top:16px}
+        .preview-container img{width:100%;border-radius:8px;border:1px solid var(--border)}
+        .preview-filename{margin-top:8px;font-size:13px;color:var(--t2);text-align:center}
+        .mode-toggle{display:flex;gap:0;margin-top:16px;border-radius:8px;overflow:hidden;border:1px solid var(--border)}
+        .mode-btn{flex:1;padding:10px;text-align:center;font-size:13px;font-weight:600;cursor:pointer;background:var(--bg2);color:var(--t2);border:none;transition:all .2s}
+        .mode-btn.active{background:var(--accent);color:#fff}
+        .mode-btn:hover:not(.active){background:var(--card)}
+        .btn-inspect{width:100%;padding:14px;margin-top:12px;background:linear-gradient(135deg,var(--accent),#7c3aed);color:#fff;border:none;border-radius:8px;font-size:15px;font-weight:600;cursor:pointer;transition:all .3s;letter-spacing:.3px}
+        .btn-inspect:hover:not(:disabled){transform:translateY(-1px);box-shadow:0 4px 20px rgba(79,143,247,.3)}
+        .btn-inspect:disabled{opacity:.5;cursor:not-allowed}
+        .btn-clear{width:100%;padding:10px;margin-top:8px;background:0 0;color:var(--t2);border:1px solid var(--border);border-radius:8px;font-size:13px;cursor:pointer}
+        .btn-clear:hover{border-color:var(--fail);color:var(--fail)}
+        .ref-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px;margin-top:12px}
+        .ref-item img{width:100%;border-radius:6px;border:1px solid var(--border)}
+        .ref-item p{font-size:11px;color:var(--t2);margin-top:4px;text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+        .spinner{width:48px;height:48px;border:4px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 1s linear infinite;margin:0 auto 16px}
+        @keyframes spin{to{transform:rotate(360deg)}}
+        .progress-section{padding:32px;text-align:center}
+        .progress-steps{display:flex;justify-content:center;gap:32px;margin-top:24px}
+        .step{display:flex;align-items:center;gap:8px;font-size:14px;color:var(--t2)}
+        .step.active{color:var(--accent);font-weight:600}
+        .step.done{color:var(--pass)}
+        .step-dot{width:10px;height:10px;border-radius:50%;background:var(--border)}
+        .step.active .step-dot{background:var(--accent);animation:pulse 1.5s infinite}
+        .step.done .step-dot{background:var(--pass)}
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+        .decision-banner{padding:24px;text-align:center;border-radius:var(--r);margin-bottom:20px}
+        .decision-banner.pass{background:var(--pass-bg);border:1px solid var(--pass)}
+        .decision-banner.fail{background:var(--fail-bg);border:1px solid var(--fail)}
+        .decision-banner.review{background:var(--warn-bg);border:1px solid var(--warn)}
+        .decision-label{font-size:36px;font-weight:800;letter-spacing:2px}
+        .decision-banner.pass .decision-label{color:var(--pass)}
+        .decision-banner.fail .decision-label{color:var(--fail)}
+        .decision-banner.review .decision-label{color:var(--warn)}
+        .meta-row{display:flex;gap:16px;justify-content:center;margin-top:12px;flex-wrap:wrap}
+        .meta-pill{padding:6px 14px;border-radius:16px;font-size:13px;font-weight:600;background:var(--bg2);border:1px solid var(--border)}
+        .comparison-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+        .comparison-card{background:var(--bg2);border-radius:8px;overflow:hidden;border:1px solid var(--border)}
+        .comparison-card img{width:100%;aspect-ratio:1;object-fit:cover}
+        .comparison-card .info{padding:12px}
+        .comparison-card .label{font-size:12px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--accent);margin-bottom:4px}
+        .comparison-card .name{font-size:13px;color:var(--t2)}
+        .match-table{width:100%;border-collapse:collapse;font-size:13px;margin-top:8px}
+        .match-table th{text-align:left;padding:8px 12px;color:var(--t2);font-weight:600;font-size:11px;text-transform:uppercase;letter-spacing:.5px;border-bottom:1px solid var(--border)}
+        .match-table td{padding:8px 12px;border-bottom:1px solid var(--border)}
+        .match-table tr:last-child td{border-bottom:none}
+        .score-pill{display:inline-block;padding:2px 10px;border-radius:12px;font-size:12px;font-weight:600}
+        .score-pill.high{background:var(--pass-bg);color:var(--pass)}
+        .score-pill.med{background:var(--warn-bg);color:var(--warn)}
+        .score-pill.low{background:var(--fail-bg);color:var(--fail)}
+        .detail-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-top:16px}
+        @media(max-width:768px){.detail-grid{grid-template-columns:1fr}}
+        .detail-item{background:var(--bg2);padding:16px;border-radius:8px;border:1px solid var(--border)}
+        .detail-item .dl{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--t2);margin-bottom:6px}
+        .detail-item .dv{font-size:14px;line-height:1.5}
+        .diff-tag{display:inline-block;padding:4px 12px;background:var(--warn-bg);color:var(--warn);border-radius:16px;font-size:12px;margin:2px 4px 2px 0}
+        .no-diff{color:var(--pass);font-weight:500}
+        .text-box{background:var(--bg2);padding:16px;border-radius:8px;border:1px solid var(--border);margin-top:12px;line-height:1.6;font-size:14px}
+        .text-box .dl{font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--t2);margin-bottom:8px}
+        .error-box{background:var(--fail-bg);border:1px solid var(--fail);border-radius:8px;padding:16px;color:var(--fail);text-align:center}
+        .path-text{font-family:monospace;font-size:12px;color:var(--t2);word-break:break-all}
+        .quad-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:12px}
+        .quad-item{background:var(--bg2);padding:12px;border-radius:8px;border:1px solid var(--border)}
+        .quad-item .ql{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;color:var(--accent);margin-bottom:4px}
+        .quad-item .qv{font-size:13px;line-height:1.5;color:var(--t1)}
+        .crack-alert{background:var(--fail-bg);border:1px solid var(--fail);border-radius:8px;padding:16px;margin-top:12px}
+        .crack-alert .cl{font-size:13px;font-weight:700;color:var(--fail);margin-bottom:6px}
+        .crack-alert .cv{font-size:13px;line-height:1.5}
+    </style>
+</head>
+<body>
+<div id="app">
+    <div class="app-container">
+        <div class="header">
+            <div class="header-icon">&#9881;</div>
+            <div>
+                <h1>Defect Detector</h1>
+                <p>AI-powered engine part inspection &mdash; CLIP similarity + Vision LLM structural analysis</p>
+            </div>
+        </div>
+        <div class="main-grid">
+            <!-- Left Panel -->
+            <div>
+                <div class="card">
+                    <div class="card-header">Upload Sample Image</div>
+                    <div class="card-body">
+                        <div class="upload-zone" :class="{dragover:isDragging}" @click="$refs.fileInput.click()" @dragover.prevent="isDragging=true" @dragleave.prevent="isDragging=false" @drop.prevent="handleDrop" v-if="!previewUrl">
+                            <div class="icon">&#128247;</div>
+                            <p>Drag &amp; drop an engine part image</p>
+                            <p>or <span class="browse">browse files</span></p>
+                            <p style="margin-top:8px;font-size:12px;color:#666">JPG, JPEG, PNG</p>
+                        </div>
+                        <div class="preview-container" v-if="previewUrl">
+                            <img :src="previewUrl" alt="Preview"/>
+                            <div class="preview-filename">{{ selectedFile?.name }}</div>
+                        </div>
+                        <input type="file" ref="fileInput" accept=".jpg,.jpeg,.png" style="display:none" @change="handleFileSelect"/>
+                        <div class="mode-toggle">
+                            <button class="mode-btn" :class="{active:mode==='standard'}" @click="mode='standard'">Standard</button>
+                            <button class="mode-btn" :class="{active:mode==='enhanced'}" @click="mode='enhanced'">Enhanced (Quadrant)</button>
+                        </div>
+                        <button class="btn-inspect" @click="runInspection" :disabled="!selectedFile||inspecting">
+                            {{ inspecting ? 'Analysing\u2026' : '\uD83D\uDD0D Run Inspection' }}
+                        </button>
+                        <button class="btn-clear" @click="clearAll" v-if="selectedFile">Clear</button>
+                    </div>
+                </div>
+                <div class="card" style="margin-top:16px">
+                    <div class="card-header">Reference Library ({{ references.length }})</div>
+                    <div class="card-body">
+                        <div class="ref-grid">
+                            <div class="ref-item" v-for="ref in references" :key="ref.image_name">
+                                <img :src="ref.image_url" :alt="ref.image_name"/>
+                                <p>{{ ref.image_name }}</p>
+                            </div>
+                        </div>
+                        <p v-if="references.length===0" style="color:var(--t2);font-size:13px;text-align:center">Loading&#8230;</p>
+                    </div>
+                </div>
+            </div>
+            <!-- Right Panel -->
+            <div>
+                <!-- Progress -->
+                <div class="card" v-if="inspecting">
+                    <div class="progress-section">
+                        <div class="spinner"></div>
+                        <p style="font-size:16px;font-weight:600">{{ progressMessage }}</p>
+                        <p style="font-size:13px;color:var(--t2);margin-top:4px">{{ progressDetail }}</p>
+                        <div class="progress-steps">
+                            <div class="step" :class="{active:stageNum===1,done:stageNum>1}"><div class="step-dot"></div> Stage 1: CLIP Search</div>
+                            <div class="step" :class="{active:stageNum===2,done:stageNum>2}"><div class="step-dot"></div> Stage 2: Vision LLM</div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Error -->
+                <div class="card" v-if="error"><div class="card-body"><div class="error-box"><p style="font-weight:600;margin-bottom:4px">Inspection Failed</p><p style="font-size:13px">{{ error }}</p></div></div></div>
+                <!-- Results -->
+                <div v-if="result && !inspecting">
+                    <!-- Decision Banner -->
+                    <div class="decision-banner" :class="{pass:result.final_decision==='PASS',fail:result.final_decision==='FAIL',review:result.final_decision==='REVIEW_NEEDED'}">
+                        <div class="decision-label">{{ result.final_decision }}</div>
+                        <div class="meta-row">
+                            <span class="meta-pill" v-if="result.stage2?.confidence">Confidence: {{ (result.stage2.confidence*100).toFixed(0) }}%</span>
+                            <span class="meta-pill" v-if="result.stage2?.condition && result.stage2.condition!=='unknown'">{{ result.stage2.condition.replace(/_/g,' ') }}</span>
+                            <span class="meta-pill" v-if="result.stage2?.similarity_to_reference && result.stage2.similarity_to_reference!=='unknown'">Ref similarity: {{ result.stage2.similarity_to_reference }}</span>
+                            <span class="meta-pill" v-if="result.mode==='enhanced'">&#128270; Enhanced Mode</span>
+                        </div>
+                    </div>
+                    <!-- Stage 1 -->
+                    <div class="card" style="margin-bottom:16px">
+                        <div class="card-header"><span class="stage-badge s1">Stage 1</span> CLIP Embedding Similarity Search</div>
+                        <div class="card-body">
+                            <div class="comparison-grid">
+                                <div class="comparison-card">
+                                    <img :src="result.uploaded_image?.image_url" alt="Sample"/>
+                                    <div class="info">
+                                        <div class="label">Uploaded Sample</div>
+                                        <div class="name">{{ result.uploaded_image?.filename }}</div>
+                                    </div>
+                                </div>
+                                <div class="comparison-card" v-if="result.stage1?.best_match?.image_url">
+                                    <img :src="result.stage1.best_match.image_url" :alt="result.stage1.best_match.image_name"/>
+                                    <div class="info">
+                                        <div class="label">Best Match</div>
+                                        <div class="name">{{ result.stage1.best_match.image_name }}</div>
+                                        <div style="margin-top:4px"><span class="score-pill" :class="{high:result.stage1.best_match.similarity_score>=0.9,med:result.stage1.best_match.similarity_score>=0.75,low:result.stage1.best_match.similarity_score<0.75}">{{ (result.stage1.best_match.similarity_score*100).toFixed(1) }}%</span></div>
+                                    </div>
+                                </div>
+                                <div class="comparison-card" v-else style="display:flex;align-items:center;justify-content:center;min-height:200px">
+                                    <div class="info" style="text-align:center"><div class="label" style="color:var(--fail)">No Match Found</div><div class="name">Reference library may not be loaded</div></div>
+                                </div>
+                            </div>
+                            <table class="match-table" style="margin-top:16px" v-if="result.stage1?.all_matches?.length">
+                                <thead><tr><th>Rank</th><th>Reference Image</th><th>Similarity</th></tr></thead>
+                                <tbody>
+                                    <tr v-for="m in result.stage1.all_matches" :key="m.rank">
+                                        <td>#{{ m.rank }}</td>
+                                        <td>{{ m.image_name }}</td>
+                                        <td><span class="score-pill" :class="{high:m.similarity_score>=0.9,med:m.similarity_score>=0.75,low:m.similarity_score<0.75}">{{ (m.similarity_score*100).toFixed(1) }}%</span></td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                            <div v-if="!result.stage1?.all_matches?.length" style="margin-top:12px;padding:16px;text-align:center;background:var(--fail-bg);border-radius:8px;color:var(--fail);font-size:13px">No similarity matches returned. Check /api/debug for diagnostics.</div>
+                            <div v-else style="margin-top:12px;font-size:13px;color:var(--t2)">Threshold: {{ (result.stage1?.threshold*100) }}% &mdash; <span :style="{color:result.stage1?.above_threshold?'var(--pass)':'var(--fail)',fontWeight:600}">{{ result.stage1?.above_threshold ? 'ABOVE' : 'BELOW' }} threshold</span></div>
+                        </div>
+                    </div>
+                    <!-- Stage 2 -->
+                    <div class="card">
+                        <div class="card-header"><span class="stage-badge s2">Stage 2</span> {{ result.stage2?.description || 'Vision LLM Analysis' }}</div>
+                        <div class="card-body">
+                            <div class="detail-grid">
+                                <div class="detail-item">
+                                    <div class="dl">Confidence</div>
+                                    <div class="dv" style="font-size:24px;font-weight:700">{{ result.stage2?.confidence ? (result.stage2.confidence*100).toFixed(0)+'%' : 'N/A' }}</div>
+                                </div>
+                                <div class="detail-item">
+                                    <div class="dl">Condition</div>
+                                    <div class="dv" style="font-size:16px;font-weight:600">{{ (result.stage2?.condition||'unknown').replace(/_/g,' ') }}</div>
+                                </div>
+                            </div>
+                            <div class="detail-item" style="margin-top:16px">
+                                <div class="dl">Defects Found</div>
+                                <div class="dv">
+                                    <span v-if="!result.stage2?.defects_found?.length" class="no-diff">No defects detected &#10003;</span>
+                                    <span v-else><span class="diff-tag" v-for="d in result.stage2.defects_found" :key="d">{{ d }}</span></span>
+                                </div>
+                            </div>
+                            <!-- Enhanced: Crack Alert -->
+                            <div class="crack-alert" v-if="result.stage2?.crack_detected">
+                                <div class="cl">&#9888; CRACK DETECTED</div>
+                                <div class="cv">{{ result.stage2.crack_details }}</div>
+                            </div>
+                            <!-- Enhanced: Quadrant Analysis -->
+                            <div v-if="result.stage2?.quadrant_analysis">
+                                <div style="margin-top:16px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--t2)">Quadrant Analysis</div>
+                                <div class="quad-grid">
+                                    <div class="quad-item" v-for="(finding, qname) in result.stage2.quadrant_analysis" :key="qname">
+                                        <div class="ql">{{ qname.replace(/_/g,' ') }}</div>
+                                        <div class="qv">{{ finding }}</div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="text-box" v-if="result.stage2?.reasoning"><div class="dl">Reasoning</div><div>{{ result.stage2.reasoning }}</div></div>
+                            <div class="text-box" v-if="result.stage2?.recommendations" style="margin-top:8px"><div class="dl">Recommendations</div><div>{{ result.stage2.recommendations }}</div></div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Empty State -->
+                <div class="card" v-if="!result&&!inspecting&&!error">
+                    <div class="progress-section" style="padding:60px 32px">
+                        <div style="font-size:64px;margin-bottom:16px">&#128295;</div>
+                        <p style="font-size:16px;font-weight:600">Ready to Inspect</p>
+                        <p style="font-size:13px;color:var(--t2);margin-top:4px;max-width:400px;margin-left:auto;margin-right:auto">
+                            Upload an engine fan part image. <b>Standard</b> mode runs a 5-point structural inspection.
+                            <b>Enhanced</b> mode adds quadrant cropping with a crack-focused deep scan.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<script>
+const{createApp,ref,computed,onMounted}=Vue;
+createApp({
+    setup(){
+        const selectedFile=ref(null),previewUrl=ref(null),isDragging=ref(false),inspecting=ref(false);
+        const stageNum=ref(0),progressMessage=ref(''),progressDetail=ref('');
+        const result=ref(null),error=ref(null),references=ref([]),mode=ref('standard');
+
+        const loadReferences=async()=>{try{const r=await fetch('/api/references');const d=await r.json();references.value=d.references||[]}catch(e){console.error(e)}};
+        const handleFileSelect=e=>{const f=e.target.files[0];if(f)setFile(f)};
+        const handleDrop=e=>{isDragging.value=false;const f=e.dataTransfer.files[0];if(f)setFile(f)};
+        const setFile=f=>{selectedFile.value=f;previewUrl.value=URL.createObjectURL(f);result.value=null;error.value=null};
+        const clearAll=()=>{selectedFile.value=null;previewUrl.value=null;result.value=null;error.value=null};
+
+        const runInspection=async()=>{
+            if(!selectedFile.value)return;
+            inspecting.value=true;error.value=null;result.value=null;
+            stageNum.value=1;
+            progressMessage.value='Stage 1: CLIP Similarity Search';
+            progressDetail.value='Computing embedding and searching reference library\u2026';
+            try{
+                const fd=new FormData();
+                fd.append('file',selectedFile.value);
+                fd.append('mode',mode.value);
+                // Show stage 1 for a moment, then switch to stage 2
+                const fetchPromise=fetch('/api/inspect',{method:'POST',body:fd});
+                await new Promise(r=>setTimeout(r,1500));
+                stageNum.value=2;
+                progressMessage.value='Stage 2: Vision LLM Analysis';
+                progressDetail.value=mode.value==='enhanced'?'Full-res + quadrant zoom with crack-focused scan\u2026':'Running 5-point structural inspection\u2026';
+                const resp=await fetchPromise;
+                if(!resp.ok){const t=await resp.text();throw new Error(t||'HTTP '+resp.status)}
+                result.value=await resp.json();
+                stageNum.value=3;
+            }catch(e){error.value=e.message||'Unexpected error'}finally{inspecting.value=false}
+        };
+        onMounted(loadReferences);
+        return{selectedFile,previewUrl,isDragging,inspecting,stageNum,progressMessage,progressDetail,result,error,references,mode,handleFileSelect,handleDrop,clearAll,runInspection};
+    }
+}).mount('#app');
+</script>
+</body>
+</html>
